@@ -37,12 +37,29 @@ void Sector::GetCustomSystems()
 
 #define CUSTOM_ONLY_RADIUS	4
 
+//#define MTRand XorshiftRand
+
 //////////////////////// Sector
 Sector::Sector(int x, int y, int z)
 {
-	unsigned long _init[4] = { Uint32(x), Uint32(y), Uint32(z), UNIVERSE_SEED };
+#if 0
+	// debug xorshift rng
+	static bool testRun = false;
+	if (!testRun) {
+		XorshiftRand debug(4656278);
+		printf("Single seed initialisation. Seed %u\n", 4656278);
+		debug.PrintTestOutput();
+		Uint32 s[4] = { 12, 34, 56, 78 };
+		printf("Normal Initilisation. Seed: { 12, 34, 56, 78 }\n");
+		XorshiftRand debug1(s);
+		debug1.PrintTestOutput();
+		testRun = true;
+	}
+#endif
+	int _init[4] = { x, y, z, int(UNIVERSE_SEED) };
 	sx = x; sy = y; sz = z;
-	MTRand rng(_init, 4);
+	// all seeds cannot be zero
+	XorshiftRand rng(_init);
 	MTRand rand(UNIVERSE_SEED);
 
 	GetCustomSystems();
@@ -252,7 +269,7 @@ float Sector::DistanceBetween(const Sector *a, int sysIdxA, const Sector *b, int
 	return dv.Length();
 }
 
-std::string Sector::GenName(System &sys, MTRand &rng)
+std::string Sector::GenName(System &sys, XorshiftRand &rng)
 {
 	std::string name;
 	const int dist = std::max(std::max(abs(sx),abs(sy)),abs(sz));
@@ -320,4 +337,30 @@ bool Sector::WithinBox(const int Xmin, const int Xmax, const int Ymin, const int
 		}
 	}
 	return false;
+}
+
+// implement 11, 19, 8 shift which also passes the diehard tests according to wiki
+Uint32 XorshiftRand::Rand_int32() {
+  unsigned long temp;
+  temp = s[0] ^ (s[0] << 11);
+  s[0] = s[1]; 
+  s[1] = s[2]; 
+  s[2] = s[3];
+  s[3] = s[3] ^ (s[3] >> 19) ^ (temp ^ (temp >> 8));
+  return s[3];
+}
+
+void XorshiftRand::PrintTestOutput() 
+{
+	printf("-----------------------------------------------------------------\n\n");
+	printf("Xorshift random number generator test output.\n");
+	printf("Current Internal State: s[0] %u, s[1] %u, s[2] %u, s[3] %u\n\n", s[0], s[1], s[2], s[3]);
+	// the core function is the random int 32 function
+	// the rest use the output of this to generate doubles etc.
+	for (int i = 0; i < 1000; i++) {
+		Uint32 t= Int32();
+		printf("Call %i, Int32 result: %u    |", i, t);
+		printf("Internal State: s[0] %u, s[1] %u, s[2] %u, s[3] %u\n", s[0], s[1], s[2], s[3]);
+	}
+	printf("-----------------------------------------------------------------\n\n");
 }
