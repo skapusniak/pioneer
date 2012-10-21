@@ -9,6 +9,7 @@
 #include "vector3.h"
 #include "fixed.h"
 #include <map>
+#include <set>
 #include <utility>
 
 class Faction {
@@ -29,7 +30,9 @@ public:
 	std::string				name;				// Formal name "Federation", "Empire", "Bob's Rib-shack consortium of delicious worlds (tm)", etc.
 	std::string				description_short;	// short description
 	std::string				description;		// detailed description describing formation, current status, etc
-	Polit::GovType			govType;
+	// government types		
+	typedef std::set<Polit::GovType> GovTypesSet;
+	GovTypesSet             govTypes;
 	bool					hasHomeworld;
 	SystemPath				homeworld;			// sector(x,y,x) + system index + body index = location in a (custom?) system of homeworld
 	double					foundingDate;		// date faction came into existence
