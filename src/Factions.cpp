@@ -96,11 +96,32 @@ static int l_fac_description(lua_State *L)
 	return 1;
 }
 
-static int l_fac_govtype(lua_State *L)
+// weightings to use when picking a government type
+static int l_fac_govtype_weight(lua_State *L)
 {
 	Faction *fac = l_fac_check(L, 1);
-	fac->govType = static_cast<Polit::GovType>(LuaConstants::GetConstantFromArg(L, "PolitGovType", 2));
+	const char *typeName = luaL_checkstring(L, 2);
+	const Polit::GovType g = static_cast<Polit::GovType>(LuaConstants::GetConstant(L, "PolitGovType", typeName));
+	const int32_t weight = luaL_checkint(L, 3);	// signed as we will need to compare with signed out of MTRand.Int32
+
+	if (g < Polit::GOV_RAND_MIN || g > Polit::GOV_RAND_MAX) {
+		pi_lua_warn(L,
+			"government type out of range: Faction{%s}:govtype_weight('%s', %d)",
+			fac->name.c_str(), typeName, weight);
+		return 0;
+	}
+
+	if (weight < 0) {
+		pi_lua_warn(L,
+			"weight must a postive integer: Faction{%s}:govtype_weight('%s', %d)",
+			fac->name.c_str(), typeName, weight);
+		return 0;		
+	}
+
+	fac->govtype_weights.push_back(std::make_pair(g, weight));
+	fac->govtype_weights_total += weight;
 	lua_settop(L, 1);
+
 	return 1;
 }
 
@@ -219,7 +240,7 @@ static luaL_Reg LuaFaction_meta[] = {
 	{ "new",                       &l_fac_new },
 	{ "description_short",         &l_fac_description_short },
 	{ "description",               &l_fac_description },
-	{ "govtype",                   &l_fac_govtype },
+	{ "govtype_weight",            &l_fac_govtype_weight },
 	{ "homeworld",                 &l_fac_homeworld },
 	{ "foundingDate",              &l_fac_foundingDate },
 	{ "expansionRate",             &l_fac_expansionRate },
@@ -286,6 +307,7 @@ void Faction::Uninit()
 	s_factions.clear();
 }
 
+
 Faction *Faction::GetFaction(const Uint32 index)
 {
 	assert( index < s_factions.size() );
@@ -342,34 +364,23 @@ const bool Faction::IsCloserAndContains(double& closestFactionDist, const Sector
 
 const Uint32 Faction::GetNearestFactionIndex(const Sector sec, Uint32 sysIndex)
 {
-	// firstly is this a custom StarSystem which might have funny settings
-	Polit::GovType a = Polit::GOV_INVALID;
+	Uint32 ret_index = BAD_FACTION_IDX;
 
-	/* from custom system definition */
+	/* firstly if this a custom StarSystem it may already have a faction assigned
+	*/
 	if (sec.m_systems[sysIndex].customSys) {
-		Polit::GovType t = sec.m_systems[sysIndex].customSys->govType;
-		a = t;
+		ret_index = sec.m_systems[sysIndex].customSys->factionIdx;
 	}
-	// if the custom system has a valid govType set then try to find a matching faction
-	if( a != Polit::GOV_INVALID )
-	{
-		for (Uint32 index = 0; index < s_factions.size(); ++index) {
-			const Faction &fac = *s_factions[index];
-			if(fac.govType == a) {
-				return index;
-			}
+		
+	/* if it didn't, or it wasn't a custom StarStystem, then we go ahead and assign it a faction allegiance like normal below...
+	*/
+	if (ret_index == BAD_FACTION_IDX) {
+		Uint32 index              = 0;
+		double closestFactionDist = HUGE_VAL;
+	
+		for (FactionIterator it = s_factions.begin(); it != s_factions.end(); ++it, ++index) {
+			if ((*it)->IsCloserAndContains(closestFactionDist, sec, sysIndex)) ret_index = index;
 		}
-		// no matching faction found, return the default
-		return BAD_FACTION_IDX;
-	}
-	
-	// if we don't find a match then we can go on and assign it a faction allegiance like normal below...
-	Uint32 index              = 0;
-	Uint32 ret_index          = BAD_FACTION_IDX;
-	double closestFactionDist = HUGE_VAL;
-	
-	for (FactionIterator it = s_factions.begin(); it != s_factions.end(); ++it, ++index) {
-		if ((*it)->IsCloserAndContains(closestFactionDist, sec, sysIndex)) ret_index = index;
 	}
 	return ret_index;
 }
@@ -379,6 +390,7 @@ const Uint32 Faction::GetNearestFactionIndex(const SystemPath& sysPath)
 	Sector sec(sysPath.sectorX, sysPath.sectorY, sysPath.sectorZ);
 	return GetNearestFactionIndex(sec, sysPath.systemIndex);
 }
+
 
 const Color Faction::GetNearestFactionColour(const Sector sec, Uint32 sysIndex)
 {
@@ -392,13 +404,48 @@ const Color Faction::GetNearestFactionColour(const Sector sec, Uint32 sysIndex)
 	}
 }
 
+const Uint32 Faction::GetIndexOfFaction(const std::string factionName)
+{
+	// there has to be a better way than this!
+	Uint32 factionIdx = 0;
+	FactionIterator it=s_factions.begin();
+	while((it!=s_factions.end()) && ((*it)->name != factionName)) { 
+		++it;
+		++factionIdx;
+	}
+	if (it == s_factions.end()) {
+		return BAD_FACTION_IDX;
+	} else {
+		return factionIdx;
+	}
+}
+
+const Polit::GovType Faction::PickGovType(MTRand &rand) const
+{
+	if( !govtype_weights.empty()) {
+		// if we roll a number between one and the total weighting...
+		int32_t roll = rand.Int32(1, govtype_weights_total);
+		int32_t cumulativeWeight = 0;
+
+		// ...the first govType with a cumulative weight >= the roll should be our pick
+		GovWeightIterator it = govtype_weights.begin();
+		while(roll > (cumulativeWeight + it->second)) { 
+			cumulativeWeight += it->second;
+			++it; 
+		}
+		return it->first;
+	} else {
+		return Polit::GOV_INVALID;
+	}
+}
+
 Faction::Faction() :
-	govType(Polit::GOV_INVALID),
 	hasHomeworld(false),
 	m_homesector(0),
 	foundingDate(0.0),
-	expansionRate(0.0)
+	expansionRate(0.0)	
 {
+	govtype_weights_total = 0;
 }
 
 Faction::~Faction()
