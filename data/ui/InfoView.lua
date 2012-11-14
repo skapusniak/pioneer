@@ -236,7 +236,7 @@ local econTrade = function ()
 	-- way to handle it; hopefully the enclosure will evaporate shortly
 	-- after the UI is disposed of.
 
-	updateCargoListWidget = function ()
+	local updateCargoListWidget = function ()
 
 		local cargoNameColumn = {}
 		local cargoQuantityColumn = {}
@@ -286,8 +286,11 @@ local econTrade = function ()
 	end
 
 	-- Define the refuel button
-	local refuelButton = ui:Button():SetInnerWidget(ui:Label(t('REFUEL')))
-	refuelButton.onClick:Connect(refuel)
+    local refuelButton
+	if Game.player:GetEquipCount('CARGO', 'WATER') > 0 then
+		refuelButton = ui:Button():SetInnerWidget(ui:Label(t('REFUEL')))
+		refuelButton.onClick:Connect(refuel)
+	end
 
 	return ui:Expand():SetInnerWidget(
 		ui:Grid(2,1)
