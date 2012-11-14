@@ -32,7 +32,7 @@ public:
 	static const Uint32 BAD_FACTION_IDX;		// returned by GetNearestFactionIndex if system has no faction
 	static const Color  BAD_FACTION_COLOUR;		// factionColour to use on failing to find an appropriate faction
 	static const float  FACTION_BASE_ALPHA;	    // Alpha to use on factionColour of systems with unknown population
-	
+		
 	Faction();
 	~Faction();
 
@@ -70,12 +70,14 @@ public:
 	const double Radius() const { return (FACTION_CURRENT_YEAR - foundingDate) * expansionRate; };
 	const Polit::GovType PickGovType(MTRand &rand) const;
 
+	// set the homeworld to one near the supplied co-ordinates
+	void SetBestFitHomeworld(Sint32 x, Sint32 y, Sint32 z, Sint32 si, Uint32 bi);
+
 private:
 	static const double FACTION_CURRENT_YEAR;	// used to calculate faction radius	
 
 	Sector* m_homesector;						// cache of home sector to use in distance calculations
 	const bool IsCloserAndContains(double& closestFactionDist, const Sector sec, Uint32 sysIndex);
-
 };
 
 #endif /* _FACTIONS_H */
