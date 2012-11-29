@@ -31,13 +31,13 @@ public:
 		// avoid zero seed values by changing range of values from 
 		// [-2^31-1, +2^31] to [1, 2^32-1]
 		//printf("start seed    : s[0] %u, s[1] %u, s[2] %u, s[3] %u\n", seed_[0], seed_[1], seed_[2], seed_[3]);
-		Uint32 d = 2^31-1;
+		Uint32 d = 2^31 - 1;
 		Uint32 t[4];
-		s[0] = t[0] = (seed_[0] > 0)?Uint32(seed_[0])+d:Uint32(-seed_[0])+d; 
-		s[1] = t[1] = (seed_[1] > 0)?Uint32(seed_[1])+d:Uint32(-seed_[1])+d;  
-		s[2] = t[2] = (seed_[2] > 0)?Uint32(seed_[2])+d:Uint32(-seed_[2])+d;  
-		// universe seed is left unchanged
-		s[3] = t[3] = Uint32(seed_[3]);
+
+		s[0] = t[0] = (seed_[0] >= 0)?Uint32(seed_[0])+d:Uint32(d+seed_[0]); 
+		s[1] = t[1] = (seed_[1] >= 0)?Uint32(seed_[1])+d:Uint32(d+seed_[1]);  
+		s[2] = t[2] = (seed_[2] >= 0)?Uint32(seed_[2])+d:Uint32(d+seed_[2]);  
+		s[3] = t[3] = Uint32(seed_[3]);    // universe seed is left unchanged
 
 		GenerateState(t);
 		//t[0] = SmallStateRNG(t[0], 8);
