@@ -31,7 +31,7 @@ public:
 		// avoid zero seed values by changing range of values from 
 		// [-2^31-1, +2^31] to [1, 2^32-1]
 		//printf("start seed    : s[0] %u, s[1] %u, s[2] %u, s[3] %u\n", seed_[0], seed_[1], seed_[2], seed_[3]);
-		Uint32 d = 2^31 - 1;
+		const Uint32 d = 0x7FFFFFFF;
 		Uint32 t[4];
 
 		s[0] = t[0] = (seed_[0] >= 0)?Uint32(seed_[0])+d:Uint32(d+seed_[0]); 
