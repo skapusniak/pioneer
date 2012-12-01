@@ -1218,7 +1218,7 @@ SystemBody::AtmosphereParameters SystemBody::CalcAtmosphereParams() const
 
 	// XXX hack to avoid issues with sysgen giving 0 temps
 	// temporary as part of sysgen needs to be rewritten before the proper fix can be used
-	if (T < 1) 
+	if (T < 1)
 		T = 40;
 
 	// XXX just use earth's composition for now
@@ -1238,11 +1238,15 @@ SystemBody::AtmosphereParameters SystemBody::CalcAtmosphereParams() const
 }
 
 
-StarSystem::StarSystem(const SystemPath &path) : m_path(path), m_factionIdx(Faction::BAD_FACTION_IDX), rootBody(0)
+StarSystem::StarSystem(const SystemPath &path) : m_path(path), m_faction(0), rootBody(0)
 {
 	assert(path.IsSystemPath());
 	memset(m_tradeLevel, 0, sizeof(m_tradeLevel));
 	m_hasCustomBodies = false;
+	m_econType        = ECON_INDUSTRY;
+	m_agricultural    = 0;
+	m_totalPop        = 0;
+
 	Initialise();
 }
 
@@ -1257,10 +1261,13 @@ void StarSystem::Initialise() {
 	SystemGenerator generator = SystemGenerator(m_path);
 
 	m_name       = generator.Name();
-	m_isCustom   = generator.Custom();
+	m_faction    = generator.Faction();
 	m_numStars   = generator.NumStars();
-	m_unexplored = generator.Unexplored();
+	m_humanProx  = generator.HumanProx();
+	m_isCustom   = generator.Custom();
 
+	// stuff that's order dependent in the classic system generator starts here
+	m_unexplored = generator.Unexplored();
 	if (m_isCustom) {
 		const CustomSystem *custom = generator.Custom();
 		if (custom->shortDesc.length() > 0) m_shortDesc = custom->shortDesc;
@@ -1274,8 +1281,10 @@ void StarSystem::Initialise() {
 
 	rootBody      = generator.AddStarsTo(m_bodies);
 	m_metallicity = generator.Metallicity();
-			               
-	generator.AddPlanetsTo(m_bodies);
+
+	                generator.AddPlanetsTo(m_bodies);
+	m_industrial  = generator.Industry();
+	m_totalPop    = generator.AddPopulationTo(this);
 	Populate(true);
 
 #ifdef DEBUG_DUMP
@@ -1499,7 +1508,7 @@ void SystemBody::PickPlanetType(MTRand &rand)
 	PickRings();
 }
 
-void StarSystem::MakeShortDescription(MTRand &rand)
+void StarSystem::MakeShortDescription()
 {
 	m_econType = 0;
 	if ((m_industrial > m_metallicity) && (m_industrial > m_agricultural)) {
@@ -1546,22 +1555,12 @@ void StarSystem::MakeShortDescription(MTRand &rand)
 
 const Color StarSystem::GetFactionColour() const
 {
-	if (m_factionIdx != Faction::BAD_FACTION_IDX) {
-		const Faction *fac = Faction::GetFaction(m_factionIdx);
-		if( fac ) {
-			return fac->colour;
-		}
-	}
-	return Color(0.8f,0.8f,0.8f,0.5f);
+	return m_faction->colour;
 }
 
 const char *StarSystem::GetAllegianceDesc() const
 {
-	if (m_factionIdx != Faction::BAD_FACTION_IDX) {
-		const Faction *fac = Faction::GetFaction(m_factionIdx);
-		return fac ? fac->name.c_str() : Lang::NO_CENTRAL_GOVERNANCE;		
-	}
-	return Lang::INDEPENDENT;
+	return m_faction->name.c_str();
 }
 
 /* percent */
@@ -1569,26 +1568,8 @@ const char *StarSystem::GetAllegianceDesc() const
 
 void StarSystem::Populate(bool addSpaceStations)
 {
-	unsigned long _init[5] = { m_path.systemIndex, Uint32(m_path.sectorX), Uint32(m_path.sectorY), Uint32(m_path.sectorZ), UNIVERSE_SEED };
-	MTRand rand;
-	rand.seed(_init, 5);
 
-	/* Various system-wide characteristics */
-	// This is 1 in sector (0,0,0) and approaches 0 farther out
-	// (1,0,0) ~ .688, (1,1,0) ~ .557, (1,1,1) ~ .48
-	m_humanProx = fixed(3,1) / isqrt(9 + 10*(m_path.sectorX*m_path.sectorX + m_path.sectorY*m_path.sectorY + m_path.sectorZ*m_path.sectorZ));
-	m_econType = ECON_INDUSTRY;
-	m_industrial = rand.Fixed();
-	m_agricultural = 0;
-
-	// find the faction we're probably aligned with
-	m_factionIdx = Faction::GetNearestFactionIndex(m_path);
-
-	/* system attributes */
-	m_totalPop = fixed(0);
-	rootBody->PopulateStage1(this, m_totalPop);
-
-//	printf("Trading rates:\n");
+	//	printf("Trading rates:\n");
 	// So now we have balances of trade of various commodities.
 	// Lets use black magic to turn these into percentage base price
 	// alterations
@@ -1596,9 +1577,15 @@ void StarSystem::Populate(bool addSpaceStations)
 	for (int i=Equip::FIRST_COMMODITY; i<=Equip::LAST_COMMODITY; i++) {
 		maximum = std::max(abs(m_tradeLevel[i]), maximum);
 	}
-	if (maximum) for (int i=Equip::FIRST_COMMODITY; i<=Equip::LAST_COMMODITY; i++) {
-		m_tradeLevel[i] = (m_tradeLevel[i] * MAX_COMMODITY_BASE_PRICE_ADJUSTMENT) / maximum;
-		m_tradeLevel[i] += rand.Int32(-5, 5);
+	if (maximum) {
+		unsigned long _init[5] = { m_path.systemIndex, Uint32(m_path.sectorX), Uint32(m_path.sectorY), Uint32(m_path.sectorZ), UNIVERSE_SEED };
+		MTRand rand;
+		rand.seed(_init, 5);
+
+		for (int i=Equip::FIRST_COMMODITY; i<=Equip::LAST_COMMODITY; i++) {
+			m_tradeLevel[i] = (m_tradeLevel[i] * MAX_COMMODITY_BASE_PRICE_ADJUSTMENT) / maximum;
+			m_tradeLevel[i] += rand.Int32(-5, 5);
+		}
 	}
 
 // Unused?
@@ -1615,7 +1602,7 @@ void StarSystem::Populate(bool addSpaceStations)
 	}
 
 	if (!m_shortDesc.size())
-		MakeShortDescription(rand);
+		MakeShortDescription();
 }
 
 /*
@@ -1841,7 +1828,7 @@ SystemBody::~SystemBody()
 {
 	for (std::vector<SystemBody*>::iterator i = children.begin(); i != children.end(); ++i) {
 		delete (*i);
-	}	
+	}
 }
 
 void StarSystem::Serialize(Serializer::Writer &wr, StarSystem *s)

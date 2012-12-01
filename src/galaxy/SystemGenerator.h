@@ -8,6 +8,7 @@
 #include "mtrand.h"
 #include "galaxy/Sector.h"
 #include "galaxy/StarSystem.h"
+#include "Factions.h"
 
 
 namespace SystemGeneration
@@ -42,14 +43,18 @@ namespace SystemGeneration
 		typedef std::vector<SystemBody*> BodyList;
 
 		const std::string   Name()         const { return SectorSystem().name; }
-		const CustomSystem* Custom()	   const { return SectorSystem().customSys; }
+		const CustomSystem* Custom()       const { return SectorSystem().customSys; }
+		      Faction*      Faction()      const { return Faction::GetNearestFaction(m_sector, m_path.systemIndex); }
 	
-		const int           NumStars()     const;	
+		const int           NumStars()     const;
 		const bool          Unexplored();
+		const fixed         Industry()           { return populationRand().Fixed(); }
+		      fixed         HumanProx()    const;    // eventually make private and remove from StarSystem as only used in generation
 		const fixed         Metallicity()  const;
-	
-		SystemBody*         AddStarsTo  (BodyList& bodies);
-		void                AddPlanetsTo(BodyList& bodies);
+
+		SystemBody*         AddStarsTo     (BodyList& bodies);
+		void                AddPlanetsTo   (BodyList& bodies);
+		const fixed         AddPopulationTo(StarSystem* system);
 
 		//---------------------- state accessors (eventually make private or eliminate)
 		MTRand& systemRand();
@@ -63,6 +68,7 @@ namespace SystemGeneration
 		SystemBody* m_rootBody;
 
 		MTRand*     m_systemRand;
+		MTRand*     m_populationRand;
 
 		//---------------------- private builders
 	
@@ -93,6 +99,7 @@ namespace SystemGeneration
 		}
 
 		//---------------------- private helpers
+		MTRand& populationRand();
 
 		const Sector::System SectorSystem() const { return m_sector.m_systems[m_path.systemIndex]; };
 	

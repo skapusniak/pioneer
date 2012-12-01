@@ -169,71 +169,6 @@ namespace SystemGeneration
 			{2000000,5000000}, {10000,20000},
 			10, 24
 		}
-	/*	}, {
-			SystemBody::SUPERTYPE_GAS_GIANT,
-			{}, 950, Lang::MEDIUM_GAS_GIANT,
-		}, {
-			SystemBody::SUPERTYPE_GAS_GIANT,
-			{}, 1110, Lang::LARGE_GAS_GIANT,
-		}, {
-			SystemBody::SUPERTYPE_GAS_GIANT,
-			{}, 1500, Lang::VERY_LARGE_GAS_GIANT,
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 1, Lang::ASTEROID,
-			"icons/object_planet_asteroid.png"
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 2, "Large asteroid",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 26, "Small, rocky dwarf planet", // moon radius
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 26, "Small, rocky dwarf planet", // dwarf2 for moon-like colours
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 52, "Small, rocky planet with a thin atmosphere", // mars radius
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Rocky frozen planet with a thin nitrogen atmosphere", // earth radius
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Dead world that once housed it's own intricate ecosystem.", // earth radius
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Rocky planet with a carbon dioxide atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Rocky planet with a methane atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Water world with vast oceans and a thick nitrogen atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Rocky planet with a thick carbon dioxide atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Rocky planet with a thick methane atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "Highly volcanic world",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 100, "World with indigenous life and an oxygen atmosphere",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 60, "Marginal terraformed world with minimal plant life",
-		}, {
-			SystemBody::SUPERTYPE_ROCKY_PLANET,
-			{}, 90, "Fully terraformed world with introduced species from numerous successful colonies",
-		}, {
-			SystemBody::SUPERTYPE_STARPORT,
-			{}, 0, Lang::ORBITAL_STARPORT,
-		}, {
-			SystemBody::SUPERTYPE_STARPORT,
-			{}, 0, Lang::STARPORT,
-		}*/
 	};
 
 	//-----------------------------------------------------------------------------
@@ -277,8 +212,15 @@ namespace SystemGeneration
 			return !Custom()->explored;    // may be defined manually in the custom system definition
 		} else {
 			int dist = isqrt(1 + m_path.sectorX*m_path.sectorX + m_path.sectorY*m_path.sectorY + m_path.sectorZ*m_path.sectorZ);
-			return (dist > 90) || (dist > 65 && systemRand().Int32(dist) > 40);
+			return !(Faction::IsHomeSystem(m_path) || ((dist <= 90) && ( dist <= 65 || systemRand().Int32(dist) <= 40)));
 		}
+	}
+
+	fixed SystemGenerator::HumanProx() const
+	{ 
+		// This is 1 in sector (0,0,0) and approaches 0 farther out
+		// (1,0,0) ~ .688, (1,1,0) ~ .557, (1,1,1) ~ .48
+		return Faction::IsHomeSystem(m_path) ? fixed(2,3): fixed(3,1) / isqrt(9 + 10*(m_path.sectorX*m_path.sectorX + m_path.sectorY*m_path.sectorY + m_path.sectorZ*m_path.sectorZ));
 	}
 
 	const fixed SystemGenerator::Metallicity() const
@@ -346,6 +288,13 @@ namespace SystemGeneration
 		if (m_centGrav1)                    AddPlanetsAround(bodies, m_centGrav1);
 		if (m_centGrav2 && NumStars() == 4) AddPlanetsAround(bodies, m_centGrav2);
 
+	}
+
+	const fixed SystemGenerator::AddPopulationTo(StarSystem* system)
+	{
+		fixed population = 0;
+		system->rootBody->PopulateStage1(system, population);
+		return population;
 	}
 
 	//-----------------------------------------------------------------------------
@@ -615,7 +564,7 @@ namespace SystemGeneration
 //-----------------------------------------------------------------------------
 // State
 
-	MTRand& SystemGenerator::systemRand() 
+	MTRand& SystemGenerator::systemRand()
 	{
 		if (!m_systemRand) {
 			unsigned long _init[6] = { m_path.systemIndex, Uint32(m_path.sectorX), Uint32(m_path.sectorY), Uint32(m_path.sectorZ), UNIVERSE_SEED, SectorSystem().seed };
@@ -624,10 +573,19 @@ namespace SystemGeneration
 		return *m_systemRand;
 	}
 
+	MTRand& SystemGenerator::populationRand()
+	{
+		if (!m_populationRand) {
+			unsigned long _init[5] = { m_path.systemIndex, Uint32(m_path.sectorX), Uint32(m_path.sectorY), Uint32(m_path.sectorZ), UNIVERSE_SEED };
+			m_populationRand = new MTRand(_init, 5);
+		}
+		return *m_populationRand;
+	}
+
 //-----------------------------------------------------------------------------
 // Construction/Destruction
 
-	SystemGenerator::SystemGenerator(SystemPath& path): m_path(path), m_systemRand(0), m_sector(m_path.sectorX, m_path.sectorY, m_path.sectorZ)
+	SystemGenerator::SystemGenerator(SystemPath& path): m_path(path), m_sector(m_path.sectorX, m_path.sectorY, m_path.sectorZ), m_systemRand(0), m_populationRand(0)
 		, m_centGrav1(0), m_centGrav2(0), m_rootBody(0)
 	{
 		assert(m_path.systemIndex >= 0 && m_path.systemIndex < m_sector.m_systems.size());
@@ -635,7 +593,8 @@ namespace SystemGeneration
 
 	SystemGenerator::~SystemGenerator() 
 	{
-		if (m_systemRand) delete m_systemRand;
+		if (m_systemRand)     delete m_systemRand;
+		if (m_populationRand) delete m_populationRand;
 	}
 
 } // namespace SystemGenerator
