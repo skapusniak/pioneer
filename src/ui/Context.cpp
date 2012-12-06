@@ -119,10 +119,12 @@ void Context::Draw()
 	r->SetClearColor(Color::BLACK);
 	r->SetBlendMode(Graphics::BLEND_ALPHA);
 	r->SetDepthTest(false);
+	r->SetShaderSwitching(Graphics::SWITCH_LAZY);
 
 	Single::Draw();
 	m_float->Draw();
 
+	r->SetShaderSwitching(Graphics::SWITCH_SAFE);
 	r->SetScissor(false);
 }
 
