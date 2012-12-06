@@ -13,6 +13,8 @@ namespace Graphics {
 namespace GL2 {
 
 static const char *s_glslVersion = "#version 110\n";
+static Program* s_inuse = NULL;
+static ShaderSwitch s_switchmode = SWITCH_SAFE;
 
 // Check and warn about compile & link errors
 static bool check_glsl_errors(const char *filename, GLuint obj)
@@ -150,14 +152,26 @@ void Program::Reload()
 	InitUniforms();
 }
 
+void SetShaderSwitching(ShaderSwitch switchmode)
+{
+	s_switchmode = switchmode;
+	s_inuse = NULL;
+	if (s_switchmode = SWITCH_SAFE) glUseProgram(0);
+}
+
 void Program::Use()
 {
-	glUseProgram(m_program);
+	if (s_switchmode == SWITCH_SAFE || s_inuse != this) {
+		glUseProgram(m_program);
+		s_inuse = this;
+	}
 }
 
 void Program::Unuse()
 {
-	glUseProgram(0);
+	if (s_switchmode == SWITCH_SAFE) {
+		glUseProgram(0);
+	}
 }
 
 //load, compile and link

@@ -71,6 +71,12 @@ bool RendererGL2::SetPerspectiveProjection(float fov, float aspect, float near, 
 	return true;
 }
 
+bool RendererGL2::SetShaderSwitching(Graphics::ShaderSwitch switchmode)
+{
+	SetShaderSwitching(switchmode);
+	return true;
+}
+
 bool RendererGL2::SetAmbientColor(const Color &c)
 {
 	m_ambient = c;

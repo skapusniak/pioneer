@@ -61,6 +61,11 @@ enum BlendMode {
 	BLEND_ALPHA_PREMULT
 };
 
+enum ShaderSwitch {
+	SWITCH_SAFE,
+	SWITCH_LAZY
+};
+
 // Renderer base, functions return false if
 // failed/unsupported
 class Renderer
@@ -96,6 +101,8 @@ public:
 	//render state functions
 	virtual bool SetBlendMode(BlendMode type) { return false; }
 	virtual bool SetDepthTest(bool enabled) { return false; }
+	virtual bool SetShaderSwitching(ShaderSwitch switchmode) { return false; }
+	
 	//enable/disable writing to z buffer
 	virtual bool SetDepthWrite(bool enabled) { return false; }
 	virtual bool SetWireFrameMode(bool enabled) { return false; }

@@ -35,6 +35,7 @@ public:
 	virtual bool BeginFrame();
 
 	virtual bool SetPerspectiveProjection(float fov, float aspect, float near, float far);
+	virtual bool SetShaderSwitching(ShaderSwitch switchmode);
 
 	virtual bool SetAmbientColor(const Color &c);
 

@@ -9,12 +9,14 @@
  */
 #include "libs.h"
 #include "Uniform.h"
+#include "../Renderer.h"
 
 namespace Graphics {
 
 	namespace GL2 {
 
 		struct ShaderException { };
+		static void SetShaderSwitching(ShaderSwitch switchmode);
 
 		class Program {
 		public:
