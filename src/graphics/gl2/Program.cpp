@@ -152,11 +152,11 @@ void Program::Reload()
 	InitUniforms();
 }
 
-void SetShaderSwitching(ShaderSwitch switchmode)
+void Program::SetShaderSwitching(ShaderSwitch switchmode)
 {
 	s_switchmode = switchmode;
 	s_inuse = NULL;
-	if (s_switchmode = SWITCH_SAFE) glUseProgram(0);
+	// if (s_switchmode = SWITCH_SAFE) glUseProgram(0);
 }
 
 void Program::Use()

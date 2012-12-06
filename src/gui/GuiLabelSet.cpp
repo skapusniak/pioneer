@@ -59,8 +59,10 @@ void LabelSet::Clear()
 void LabelSet::Draw()
 {
 	if (!m_labelsVisible) return;
+	Screen::GetRenderer()->SetShaderSwitching(Graphics::SWITCH_LAZY);
 	for (std::vector<LabelSetItem>::iterator i = m_items.begin(); i != m_items.end(); ++i)
 		Gui::Screen::RenderString((*i).text, (*i).screenx, (*i).screeny - Gui::Screen::GetFontHeight()*0.5f, (*i).hasOwnColor ? (*i).color : m_labelColor, m_font.Get());
+	Screen::GetRenderer()->SetShaderSwitching(Graphics::SWITCH_SAFE);
 }
 
 void LabelSet::GetSizeRequested(float size[2])

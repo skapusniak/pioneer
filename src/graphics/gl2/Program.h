@@ -16,10 +16,11 @@ namespace Graphics {
 	namespace GL2 {
 
 		struct ShaderException { };
-		static void SetShaderSwitching(ShaderSwitch switchmode);
 
 		class Program {
 		public:
+			static void SetShaderSwitching(Graphics::ShaderSwitch switchmode);
+
 			Program();
 			Program(const std::string &name, const std::string &defines);
 			virtual ~Program();

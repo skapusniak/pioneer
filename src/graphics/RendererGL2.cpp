@@ -73,7 +73,7 @@ bool RendererGL2::SetPerspectiveProjection(float fov, float aspect, float near, 
 
 bool RendererGL2::SetShaderSwitching(Graphics::ShaderSwitch switchmode)
 {
-	SetShaderSwitching(switchmode);
+	GL2::Program::SetShaderSwitching(switchmode);
 	return true;
 }
 
